@@ -13,7 +13,7 @@ public interface JobPostingRepository extends JpaRepository<JobPosting, Long> {
             String externalJobId
     );
 
-    List<JobPosting> findByNotifiedFalseAndRelevanceScoreGreaterThanEqual(
-            Integer minimumScore
-    );
+    List<JobPosting> findByActiveTrueAndRelevanceScoreGreaterThanEqual(int minimumScore);
+
+    void deleteByCompany(String company);
 }

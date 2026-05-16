@@ -42,42 +42,57 @@ public class JobAggregationService {
     public void runJobSearch() {
         JobSearchCriteria criteria = criteriaProvider.getCriteria();
 
-        // All newly discovered jobs (relevant + non-relevant)
         List<JobPosting> jobsToSave = new ArrayList<>();
-
-        // Subset of jobs that matched the filtering criteria
         List<JobPosting> newlyMatchedJobs = new ArrayList<>();
 
         for (CompanyCrawler crawler : crawlers) {
-            List<JobPosting> jobs = crawler.fetchJobs(criteria);
+            List<JobPosting> fetchedJobs = crawler.fetchJobs(criteria);
 
-            for (JobPosting job : jobs) {
-                Optional<JobPosting> existing =
-                        repository.findByCompanyAndExternalJobId(
-                                job.getCompany(),
-                                job.getExternalJobId()
-                        );
+            if (fetchedJobs.isEmpty()) {
+                continue;
+            }
 
-                // Skip if already present in the database
+            // Mark all jobs from this company as inactive
+            String company = fetchedJobs.get(0).getCompany();
+            List<JobPosting> existingCompanyJobs = repository.findAll().stream()
+                    .filter(job -> company.equals(job.getCompany()))
+                    .toList();
+
+            existingCompanyJobs.forEach(job -> job.setActive(false));
+            jobsToSave.addAll(existingCompanyJobs);
+
+            // Process current jobs
+            for (JobPosting job : fetchedJobs) {
+                boolean relevant = filterService.isRelevant(job, criteria, minimumScore);
+
+                Optional<JobPosting> existing = repository.findByCompanyAndExternalJobId(
+                        job.getCompany(),
+                        job.getExternalJobId()
+                );
+
                 if (existing.isPresent()) {
-                    continue;
-                }
+                    JobPosting existingJob = existing.get();
 
-                // Calculate relevance score and determine if job matches
-                boolean relevant =
-                        filterService.isRelevant(job, criteria, minimumScore);
+                    existingJob.setTitle(job.getTitle());
+                    existingJob.setLocation(job.getLocation());
+                    existingJob.setUrl(job.getUrl());
+                    existingJob.setDescription(job.getDescription());
+                    existingJob.setRelevanceScore(job.getRelevanceScore());
+                    existingJob.setActive(true);
 
-                // Save every new job (relevant or not)
-                jobsToSave.add(job);
+                    jobsToSave.add(existingJob);
+                } else {
+                    job.setActive(true);
+                    jobsToSave.add(job);
 
-                // Keep track of relevant jobs for notification
-                if (relevant) {
-                    newlyMatchedJobs.add(job);
+                    if (relevant) {
+                        newlyMatchedJobs.add(job);
+                    }
                 }
             }
         }
 
-        // Bulk insert all newly discovered jobs
+        // Bulk save inserts + updates
         if (!jobsToSave.isEmpty()) {
             repository.saveAll(jobsToSave);
         }
@@ -88,11 +103,17 @@ public class JobAggregationService {
         if (!newlyMatchedJobs.isEmpty()) {
             emailService.sendJobAlert(newlyMatchedJobs);
 
-            // Mark as notified
             newlyMatchedJobs.forEach(job -> job.setNotified(true));
-
-            // Bulk update notified flag
             repository.saveAll(newlyMatchedJobs);
+        }
+    }
+
+    public void resendActiveJobs() {
+        List<JobPosting> activeJobs = repository.findByActiveTrueAndRelevanceScoreGreaterThanEqual(minimumScore);
+        log.info("Active jobs found: " + activeJobs.size());
+
+        if (!activeJobs.isEmpty()) {
+            emailService.sendJobAlert(activeJobs);
         }
     }
 }

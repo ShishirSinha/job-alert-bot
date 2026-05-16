@@ -49,4 +49,7 @@ public class JobPosting {
     private LocalDate postedDate;
 
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(nullable = false)
+    private boolean active = true;
 }

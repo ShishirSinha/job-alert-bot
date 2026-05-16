@@ -19,4 +19,10 @@ public class JobController {
         jobAggregationService.runJobSearch();
         return ResponseEntity.ok("Job search completed");
     }
+
+    @PostMapping("/resend-active")
+    public ResponseEntity<String> resendActiveJobs() {
+        jobAggregationService.resendActiveJobs();
+        return ResponseEntity.ok("Active jobs sent successfully.");
+    }
 }
