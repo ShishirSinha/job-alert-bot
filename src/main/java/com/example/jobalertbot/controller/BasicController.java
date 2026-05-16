@@ -10,7 +10,7 @@ public class BasicController {
 
     @GetMapping
     public ResponseEntity<String> getHealthStatus(RequestEntity<?> request) {
-        System.out.println("getHealthStatus called " + request);
+        System.out.println("getHealthStatus called");
         return ResponseEntity.status(200).body("Hi There");
     }
 }
