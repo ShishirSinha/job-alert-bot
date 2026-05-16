@@ -18,7 +18,7 @@ public class JobScheduler {
         this.jobAggregationService = jobAggregationService;
     }
 
-    @Scheduled(cron = "${app.scheduler.cron}")
+    @Scheduled(cron = "${app.scheduler.cron}", zone = "Asia/Kolkata")
     public void runScheduledJobSearch() {
         log.info("Starting scheduled job search");
 
