@@ -3,6 +3,7 @@ package com.example.jobalertbot.service;
 import com.example.jobalertbot.crawler.CompanyCrawler;
 import com.example.jobalertbot.model.JobPosting;
 import com.example.jobalertbot.repository.JobPostingRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Service
 public class JobAggregationService {
 
@@ -80,7 +82,7 @@ public class JobAggregationService {
             repository.saveAll(jobsToSave);
         }
 
-        System.out.println("Relevant jobs found: " + newlyMatchedJobs.size());
+        log.info("Relevant jobs found: " + newlyMatchedJobs.size());
 
         // Notify for relevant jobs
         if (!newlyMatchedJobs.isEmpty()) {
