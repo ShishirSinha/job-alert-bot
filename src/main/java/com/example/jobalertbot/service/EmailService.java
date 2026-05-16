@@ -9,6 +9,11 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
@@ -51,7 +56,7 @@ public class EmailService {
                 .encodeToString(("api:" + apiKey)
                         .getBytes(StandardCharsets.UTF_8));
 
-        webClient.post()
+        String response = webClient.post()
                 .uri("https://api.mailgun.net/v3/" + domain + "/messages")
                 .header("Authorization", "Basic " + auth)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
@@ -60,7 +65,7 @@ public class EmailService {
                 .bodyToMono(String.class)
                 .block();
 
-        System.out.println("Mailgun email sent successfully.");
+        System.out.println("Email sent successfully. " + response);
     }
 
     private String buildHtml(List<JobPosting> jobs) {
