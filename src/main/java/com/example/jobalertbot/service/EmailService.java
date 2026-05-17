@@ -1,7 +1,8 @@
 package com.example.jobalertbot.service;
 
-import com.example.jobalertbot.config.EmailProperties;
 import com.example.jobalertbot.model.JobPosting;
+import com.example.jobalertbot.model.Subscriber;
+import com.example.jobalertbot.repository.SubscriberRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -19,7 +20,7 @@ import java.util.List;
 public class EmailService {
 
     private final WebClient webClient;
-    private final EmailProperties emailProperties;
+    private final SubscriberRepository subscriberRepository;
 
     @Value("${mailgun.api-key}")
     private String apiKey;
@@ -30,11 +31,15 @@ public class EmailService {
     @Value("${mailgun.from}")
     private String from;
 
-    public EmailService(WebClient webClient, EmailProperties emailProperties) {
+    public EmailService(WebClient webClient, SubscriberRepository subscriberRepository) {
         this.webClient = webClient;
-        this.emailProperties = emailProperties;
+        this.subscriberRepository = subscriberRepository;
     }
 
+    // TODO: refactor below functions
+    //  sendJobAlert(List<JobPosting> jobs),
+    //  sendJobAlert(List<JobPosting> jobs, List<String> recipients) and
+    //  sendEmail(List<JobPosting> jobs, String recipient)
     public void sendJobAlert(List<JobPosting> jobs) {
         String subject = "Job Alert Bot - New Matching Jobs (" + jobs.size() + ")";
         String html = buildHtml(jobs);
@@ -42,10 +47,45 @@ public class EmailService {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("from", from);
 
-        for (String recipient : emailProperties.getTo()) {
+        List<Subscriber> subscribers = subscriberRepository.findByActiveTrue();
+
+        for (Subscriber subscriber : subscribers) {
+            String recipient = subscriber.getEmail();
             form.add("to", recipient);
         }
 
+        form.add("subject", subject);
+        form.add("html", html);
+
+        String auth = Base64.getEncoder()
+                .encodeToString(("api:" + apiKey)
+                        .getBytes(StandardCharsets.UTF_8));
+
+        String response = webClient.post()
+                .uri("https://api.mailgun.net/v3/" + domain + "/messages")
+                .header("Authorization", "Basic " + auth)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .bodyValue(form)
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
+
+        log.info("Email sent successfully. " + response);
+    }
+
+    public void sendJobAlert(List<JobPosting> jobs, List<String> recipients) {
+        for (String recipient : recipients) {
+            sendEmail(jobs, recipient);
+        }
+    }
+
+    private void sendEmail(List<JobPosting> jobs, String recipient) {
+        String subject = "Job Alert Bot - New Matching Jobs (" + jobs.size() + ")";
+        String html = buildHtml(jobs);
+
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        form.add("from", from);
+        form.add("to", recipient);
         form.add("subject", subject);
         form.add("html", html);
 
